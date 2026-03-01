@@ -1,4 +1,5 @@
-const { expect } = require("chai")
+const { expect } = require("chai");
+const { ethers } = require("hardhat");
 
 const tokens = (n) => {
   return ethers.utils.parseUnits(n.toString(), 'ether')
@@ -7,6 +8,13 @@ const tokens = (n) => {
 describe("Ethazon", () => {
   let ethazon;
   let deployer, buyer;
+  const ID = 1;
+        const NAME = "Pants";
+        const CATEGORY = "Clothing";
+        const IMAGE = "IMAGE";
+        const COST = tokens(1);
+        const RATING = 4;
+        const STOCK = 10;
 
   beforeEach(async () => {
     // setup accounts
@@ -26,13 +34,6 @@ describe("Ethazon", () => {
 
   describe("Listing", () => {
         let transaction;
-        const ID = 1;
-        const NAME = "Pants";
-        const CATEGORY = "Clothing";
-        const IMAGE = "IMAGE";
-        const COST = tokens(1);
-        const RATING = 4;
-        const STOCK = 10;
 
         beforeEach(async () => {
            transaction = await ethazon.connect(deployer).list(
@@ -70,13 +71,7 @@ describe("Ethazon", () => {
 
   describe("Buying", () => {
         let transaction;
-        const ID = 1;
-        const NAME = "Pants";
-        const CATEGORY = "Clothing";
-        const IMAGE = "IMAGE";
-        const COST = tokens(1);
-        const RATING = 4;
-        const STOCK = 10;
+        
 
         beforeEach(async () => {
            transaction = await ethazon.connect(deployer).list(
@@ -95,6 +90,45 @@ describe("Ethazon", () => {
           expect(result).to.equal(COST);
        })
 
+        it("Updates the order count", async () => {
+          const result = await ethazon.orderCount(buyer.address);
+          expect(result).to.equal(1);
+       })
+
+       it("Adds the order", async () => {
+          const result = await ethazon.orders(buyer.address, 1);
+          expect(result.timeOfOrder).to.be.greaterThan(0); // can't get exact time unless you freeze blockchain
+          expect(result.product.name).to.equal(NAME);
+       })
+
+  })
+
+  describe("Withdrawing", () => {
+        let transaction;
+        let balanceBefore;
+
+        beforeEach(async () => {
+           transaction = await ethazon.connect(deployer).list(
+            ID, NAME, CATEGORY, IMAGE, RATING, COST, STOCK
+           );
+
+           await transaction.wait(); // waiting for transaction to finish
+
+           transaction = await ethazon.connect(buyer).buy(ID, {value: COST});
+           await transaction.wait();
+           balanceBefore = await ethers.provider.getBalance(deployer.address);
+
+          
+           transaction = await ethazon.connect(deployer).withdraw();
+           await transaction.wait();
+
+       })
+
+       it("Updates the owner balance", async ()=>{
+          const balanceAfter = await ethers.provider.getBalance(deployer.address);
+          expect(balanceAfter).to.be.greaterThan(balanceBefore);
+       })
+    
   })
  
 })

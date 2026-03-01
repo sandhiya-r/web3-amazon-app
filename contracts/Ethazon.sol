@@ -4,10 +4,11 @@ pragma solidity ^0.8.9;
 // owner of the store receives the funds of the purchases 
 contract Ethazon {
     address public owner;
-    uint256 private balance;
     mapping(uint256 => Product) public products;
+    mapping(address => uint256) public orderCount; // maps buyer address to amount of orders
+    mapping(address => mapping(uint256=>Order)) public orders; // maps buyer address to map of orders
 
-    constructor() payable{
+    constructor() {
         owner = msg.sender;
     }
 
@@ -29,6 +30,7 @@ contract Ethazon {
     }
 
     event List(string name, uint256 cost, uint256 quantity);
+    event Buy(address buyer, uint256 orderId, uint256 itemId);
 
     // List products
     function list(
@@ -49,15 +51,24 @@ contract Ethazon {
 
     // Buy products
     function buy(uint256 _id) public payable{
+        require(msg.value >= products[_id].cost);
+        require(products[_id].stock > 0);
         // create an order
         Order memory order = Order(block.timestamp, products[_id]);
         // save order to chain
-        
+        orderCount[msg.sender]++; // order count serves as the order ID
+        orders[msg.sender][orderCount[msg.sender]] = order;
         // subtract stock
         products[_id].stock--; 
+        // emit buy event
+        emit Buy(msg.sender, orderCount[msg.sender], _id);
     }
 
     // Withdraw funds (only owner should be able to do this)
+    function withdraw() public onlyOwner{
+        (bool success,) = owner.call{value: address(this).balance}(""); // this refers to address of smart contract we are calling inside of
+        require(success);
+    }
 
     // Modifiers
     modifier onlyOwner(){
